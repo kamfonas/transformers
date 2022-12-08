@@ -606,10 +606,27 @@ class WhisperEncoder(WhisperPreTrainedModel):
         # Initialize weights and apply final processing
         self.post_init()
 
-    def _freeze_parameters(self):
-        for param in self.parameters():
-            param.requires_grad = False
-        self._requires_grad = False
+    def _freeze_parameters(self, num_layers_to_freeze = None):
+        if num_layers_to_freeze:
+            num_layers_to_freeze = min(num_layers_to_freeze,len(self.layers))
+            # freeze the conv 
+            for param in self.conv1.parameters():
+                param.requires_grad = False
+            for param in self.conv2.parameters():
+                param.requires_grad = False
+            for param in self.embed_positions.parameters():
+                param.requires_grad = False
+
+            # freeze the first encoder layers
+            for layer_idx in range(num_layers_to_freeze):
+                for param in self.layers[layer_idx].parameters():
+                    param.requires_grad = False
+
+        else:
+            # freeze whole encoder 
+            for param in self.parameters():
+                param.requires_grad = False
+            self._requires_grad = False
 
     def forward(
         self,
@@ -995,12 +1012,12 @@ class WhisperModel(WhisperPreTrainedModel):
     def get_decoder(self):
         return self.decoder
 
-    def freeze_encoder(self):
+    def freeze_encoder(self,num_layers_to_freeze = None):
         """
         Calling this function will disable the gradient computation for the Whisper encoder so that its parameters will
-        not be updated during training.
+        not be updated during training. If num_layers_to_freeze is set then layers up to the specified layer will be frozen. 
         """
-        self.encoder._freeze_parameters()
+        self.encoder._freeze_parameters(num_layers_to_freeze)
 
     @add_start_docstrings_to_model_forward(WHISPER_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqModelOutput, config_class=_CONFIG_FOR_DOC)
